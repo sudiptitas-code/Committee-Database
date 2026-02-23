@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:500px; margin:30px auto; padding:15px; border:1px solid #ccc; border-radius:8px; background:#f9f9f9;">
+    <h2 style="text-align:center; margin-bottom:20px;">Edit Committee Record</h2>
+
+    <form method="POST" action="/update/{{ data['Reference No'] }}" style="display:flex; flex-direction:column; gap:12px;">
+        <input name="subject" value="{{ data['Committee Subject'] }}" placeholder="Committee Subject" required style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+        <input name="reference" value="{{ data['Reference No'] }}" readonly style="padding:10px; border-radius:5px; border:1px solid #ccc; background:#eee;">
+        <input type="date" name="date" value="{{ data['Date'] }}" required style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+        <input name="convener" value="{{ data['Convener'] }}" placeholder="Convener" required style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+        <input name="member1" value="{{ data['Member-1'] }}" placeholder="Member 1" style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+        <input name="member2" value="{{ data['Member-2'] }}" placeholder="Member 2" style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+        <input name="member3" value="{{ data['Member-3'] }}" placeholder="Member 3" style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+        <input name="secretary" value="{{ data['Member Secretary'] }}" placeholder="Member Secretary" style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+
+        <button type="submit" 
+                style="padding:12px; background-color:#4CAF50; color:white; border:none; border-radius:6px; font-size:16px; cursor:pointer;">
+            Update Record
+        </button>
+    </form>
+</div>
+{% endblock %}

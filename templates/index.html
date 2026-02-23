@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:600px; margin:30px auto; padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+    <h2 style="text-align:center; margin-bottom:20px;">Add Committee Record</h2>
+
+    <form method="POST" action="/submit" style="display:flex; flex-direction:column; gap:12px;">
+
+        <input name="subject" placeholder="Committee Subject" required 
+               style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+        
+        <input name="reference" placeholder="Reference No" required 
+               style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+        
+        <input type="date" name="date" required 
+               style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+        
+        <input name="convener" placeholder="Convener" required 
+               style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+        
+        <input name="member1" placeholder="Member 1" style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+        <input name="member2" placeholder="Member 2" style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+        <input name="member3" placeholder="Member 3" style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+        <input name="secretary" placeholder="Member Secretary" style="padding:10px; border-radius:5px; border:1px solid #ccc;">
+
+        <button type="submit" 
+                style="padding:12px; background-color:#4CAF50; color:white; border:none; border-radius:6px; font-size:16px; cursor:pointer;">
+            Add Record
+        </button>
+    </form>
+</div>
+{% endblock %}
