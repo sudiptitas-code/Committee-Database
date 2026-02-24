@@ -1,17 +1,14 @@
 import sqlite3
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from datetime import datetime
-import os
 import pandas as pd
+import os
+from io import BytesIO
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
-# ===============================
-# DATABASE CONFIGURATION
-# ===============================
 DATABASE = "committee.db"
-
 
 # ===============================
 # DATABASE INITIALIZATION
@@ -35,7 +32,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-
 # ===============================
 # DASHBOARD
 # ===============================
@@ -56,7 +52,6 @@ def dashboard():
     total_members = len(set([m for m in members if m]))
 
     current_datetime = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
-
     conn.close()
 
     return render_template(
@@ -66,7 +61,6 @@ def dashboard():
         current_datetime=current_datetime
     )
 
-
 # ===============================
 # ADD COMMITTEE
 # ===============================
@@ -75,7 +69,6 @@ def add():
     if request.method == 'POST':
         conn = sqlite3.connect(DATABASE)
         cursor = conn.cursor()
-
         cursor.execute("""
             INSERT INTO committees 
             (subject, reference_no, date, convener, member1, member2, member3, secretary)
@@ -85,35 +78,30 @@ def add():
             request.form['reference_no'],
             request.form['date'],
             request.form['convener'],
-            request.form.get('member1',''),
-            request.form.get('member2',''),
-            request.form.get('member3',''),
-            request.form.get('secretary','')
+            request.form['member1'],
+            request.form['member2'],
+            request.form['member3'],
+            request.form['secretary']
         ))
-
         conn.commit()
         conn.close()
         flash("Committee added successfully!")
         return redirect(url_for('dashboard'))
-
-    return render_template('index.html')
-
+    return render_template('add.html')
 
 # ===============================
 # SEARCH PAGE
 # ===============================
 @app.route('/search')
-def search_page():
+def search():
     return render_template('search.html')
 
-
 # ===============================
-# LIVE SEARCH API
+# API SEARCH
 # ===============================
 @app.route('/api/search')
 def api_search():
     query = request.args.get('q', '').strip()
-
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -121,52 +109,41 @@ def api_search():
     if query:
         cursor.execute("""
             SELECT * FROM committees
-            WHERE 
-                subject LIKE ? OR
-                reference_no LIKE ? OR
-                convener LIKE ? OR
-                member1 LIKE ? OR
-                member2 LIKE ? OR
-                member3 LIKE ? OR
-                secretary LIKE ?
-        """, tuple(['%' + query + '%'] * 7))
+            WHERE subject LIKE ?
+               OR reference_no LIKE ?
+               OR convener LIKE ?
+               OR member1 LIKE ?
+               OR member2 LIKE ?
+               OR member3 LIKE ?
+               OR secretary LIKE ?
+        """, tuple(['%' + query + '%']*7))
         rows = cursor.fetchall()
         results = [dict(row) for row in rows]
     else:
         results = []
-
     conn.close()
-    return jsonify(results)
-
+    return {"results": results}
 
 # ===============================
-# EDIT
+# EDIT / UPDATE
 # ===============================
 @app.route('/edit/<int:id>', methods=['GET'])
 def edit(id):
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-
     cursor.execute("SELECT * FROM committees WHERE id=?", (id,))
     row = cursor.fetchone()
     conn.close()
-
     if not row:
         flash("Record not found!")
-        return redirect(url_for('search_page'))
-
+        return redirect(url_for('search'))
     return render_template('edit.html', data=dict(row))
 
-
-# ===============================
-# UPDATE
-# ===============================
 @app.route('/update/<int:id>', methods=['POST'])
 def update(id):
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
-
     cursor.execute("""
         UPDATE committees SET
             subject=?,
@@ -183,18 +160,16 @@ def update(id):
         request.form['reference_no'],
         request.form['date'],
         request.form['convener'],
-        request.form.get('member1',''),
-        request.form.get('member2',''),
-        request.form.get('member3',''),
-        request.form.get('secretary',''),
+        request.form['member1'],
+        request.form['member2'],
+        request.form['member3'],
+        request.form['secretary'],
         id
     ))
-
     conn.commit()
     conn.close()
     flash("Record updated successfully!")
-    return redirect(url_for('search_page'))
-
+    return redirect(url_for('search'))
 
 # ===============================
 # DELETE
@@ -203,13 +178,11 @@ def update(id):
 def delete(id):
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
-
     cursor.execute("DELETE FROM committees WHERE id=?", (id,))
     conn.commit()
     conn.close()
     flash("Record deleted successfully!")
-    return redirect(url_for('search_page'))
-
+    return redirect(url_for('search'))
 
 # ===============================
 # EXPORT DATABASE TO EXCEL
@@ -219,51 +192,47 @@ def export_excel():
     conn = sqlite3.connect(DATABASE)
     df = pd.read_sql_query("SELECT * FROM committees", conn)
     conn.close()
-
-    file_path = "committee_export.xlsx"
-    df.to_excel(file_path, index=False)
-    return send_file(file_path, as_attachment=True)
-
+    output = BytesIO()
+    df.to_excel(output, index=False)
+    output.seek(0)
+    return send_file(output, download_name="committees.xlsx", as_attachment=True)
 
 # ===============================
-# IMPORT EXCEL TO DATABASE
+# IMPORT EXCEL
 # ===============================
-@app.route('/import', methods=['POST'])
+@app.route('/import', methods=['GET', 'POST'])
 def import_excel():
-    file = request.files.get('file')
-    if not file:
-        flash("No file selected!")
+    if request.method == 'POST':
+        file = request.files['file']
+        if not file:
+            flash("No file selected")
+            return redirect(url_for('import_excel'))
+        df = pd.read_excel(file)
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        for _, row in df.iterrows():
+            cursor.execute("""
+                INSERT INTO committees (subject, reference_no, date, convener, member1, member2, member3, secretary)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                row.get('subject', ''),
+                row.get('reference_no', ''),
+                row.get('date', ''),
+                row.get('convener', ''),
+                row.get('member1', ''),
+                row.get('member2', ''),
+                row.get('member3', ''),
+                row.get('secretary', '')
+            ))
+        conn.commit()
+        conn.close()
+        flash("Excel data imported successfully!")
         return redirect(url_for('dashboard'))
-
-    df = pd.read_excel(file)
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-
-    for _, row in df.iterrows():
-        cursor.execute("""
-            INSERT INTO committees
-            (subject, reference_no, date, convener, member1, member2, member3, secretary)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            row.get('subject',''),
-            row.get('reference_no',''),
-            row.get('date',''),
-            row.get('convener',''),
-            row.get('member1',''),
-            row.get('member2',''),
-            row.get('member3',''),
-            row.get('secretary','')
-        ))
-
-    conn.commit()
-    conn.close()
-    flash("Excel data imported successfully!")
-    return redirect(url_for('dashboard'))
-
+    return render_template('import.html')
 
 # ===============================
 # MAIN
 # ===============================
-if __name__ == '__main__':
+if __name__ == "__main__":
     init_db()
     app.run(debug=True)
