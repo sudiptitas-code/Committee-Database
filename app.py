@@ -9,16 +9,21 @@ app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
 # =====================================
-# DATABASE CONFIGURATION
+# DATABASE CONFIGURATION (SAFE VERSION)
 # =====================================
 
-# If using Render Persistent Disk:
-# Set environment variable DATABASE_URL = /data/committee.db
-DATABASE = os.environ.get("DATABASE_URL", "committee.db")
+if os.environ.get("RENDER"):
+    # On Render use persistent disk
+    DATABASE = "/data/committee.db"
+else:
+    # Local development
+    DATABASE = "committee.db"
+
+print("Using database:", DATABASE)
 
 
 # =====================================
-# DATABASE INITIALIZATION
+# DATABASE CONNECTION
 # =====================================
 
 def get_connection():
@@ -27,9 +32,14 @@ def get_connection():
     return conn
 
 
+# =====================================
+# INITIALIZE DATABASE
+# =====================================
+
 def init_db():
     conn = get_connection()
     cursor = conn.cursor()
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS committees (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,11 +53,11 @@ def init_db():
             secretary TEXT
         )
     """)
+
     conn.commit()
     conn.close()
 
 
-# 🔥 IMPORTANT: Run DB creation when app starts (for Render)
 with app.app_context():
     init_db()
 
@@ -58,31 +68,40 @@ with app.app_context():
 
 @app.route('/')
 def dashboard():
-    conn = get_connection()
-    cursor = conn.cursor()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
 
-    cursor.execute("SELECT COUNT(*) FROM committees")
-    total_committees = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM committees")
+        total_committees = cursor.fetchone()[0]
 
-    cursor.execute("SELECT member1, member2, member3, secretary FROM committees")
-    rows = cursor.fetchall()
+        cursor.execute("SELECT member1, member2, member3, secretary FROM committees")
+        rows = cursor.fetchall()
 
-    members = []
-    for row in rows:
-        members.extend([row['member1'], row['member2'], row['member3'], row['secretary']])
+        members = []
+        for row in rows:
+            members.extend([
+                row['member1'],
+                row['member2'],
+                row['member3'],
+                row['secretary']
+            ])
 
-    total_members = len(set([m for m in members if m]))
+        total_members = len(set([m for m in members if m]))
 
-    current_datetime = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
+        current_datetime = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
 
-    conn.close()
+        conn.close()
 
-    return render_template(
-        'dashboard.html',
-        total_committees=total_committees,
-        total_members=total_members,
-        current_datetime=current_datetime
-    )
+        return render_template(
+            'dashboard.html',
+            total_committees=total_committees,
+            total_members=total_members,
+            current_datetime=current_datetime
+        )
+
+    except Exception as e:
+        return f"Dashboard Error: {str(e)}"
 
 
 # =====================================
@@ -97,7 +116,7 @@ def add():
             cursor = conn.cursor()
 
             cursor.execute("""
-                INSERT INTO committees 
+                INSERT INTO committees
                 (subject, reference_no, date, convener, member1, member2, member3, secretary)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
@@ -118,8 +137,7 @@ def add():
             return redirect(url_for('dashboard'))
 
         except Exception as e:
-            flash(f"Error: {str(e)}")
-            return redirect(url_for('add'))
+            return f"Add Error: {str(e)}"
 
     return render_template('add.html')
 
@@ -139,31 +157,35 @@ def search():
 
 @app.route('/api/search')
 def api_search():
-    query = request.args.get('q', '').strip()
+    try:
+        query = request.args.get('q', '').strip()
 
-    conn = get_connection()
-    cursor = conn.cursor()
+        conn = get_connection()
+        cursor = conn.cursor()
 
-    if query:
-        cursor.execute("""
-            SELECT * FROM committees
-            WHERE subject LIKE ?
-               OR reference_no LIKE ?
-               OR convener LIKE ?
-               OR member1 LIKE ?
-               OR member2 LIKE ?
-               OR member3 LIKE ?
-               OR secretary LIKE ?
-        """, tuple(['%' + query + '%'] * 7))
+        if query:
+            cursor.execute("""
+                SELECT * FROM committees
+                WHERE subject LIKE ?
+                   OR reference_no LIKE ?
+                   OR convener LIKE ?
+                   OR member1 LIKE ?
+                   OR member2 LIKE ?
+                   OR member3 LIKE ?
+                   OR secretary LIKE ?
+            """, tuple(['%' + query + '%'] * 7))
 
-        rows = cursor.fetchall()
-        results = [dict(row) for row in rows]
-    else:
-        results = []
+            rows = cursor.fetchall()
+            results = [dict(row) for row in rows]
+        else:
+            results = []
 
-    conn.close()
+        conn.close()
 
-    return jsonify({"results": results})
+        return jsonify({"results": results})
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 
 # =====================================
@@ -248,20 +270,24 @@ def delete(id):
 
 @app.route('/export')
 def export_excel():
-    conn = get_connection()
-    df = pd.read_sql_query("SELECT * FROM committees", conn)
-    conn.close()
+    try:
+        conn = get_connection()
+        df = pd.read_sql_query("SELECT * FROM committees", conn)
+        conn.close()
 
-    output = BytesIO()
-    df.to_excel(output, index=False)
-    output.seek(0)
+        output = BytesIO()
+        df.to_excel(output, index=False)
+        output.seek(0)
 
-    return send_file(
-        output,
-        download_name="committees.xlsx",
-        as_attachment=True,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        return send_file(
+            output,
+            download_name="committees.xlsx",
+            as_attachment=True,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    except Exception as e:
+        return f"Export Error: {str(e)}"
 
 
 # =====================================
@@ -271,7 +297,6 @@ def export_excel():
 @app.route('/import', methods=['GET', 'POST'])
 def import_excel():
     if request.method == 'POST':
-
         file = request.files.get('file')
 
         if not file:
@@ -307,7 +332,14 @@ def import_excel():
             return redirect(url_for('dashboard'))
 
         except Exception as e:
-            flash(f"Import error: {str(e)}")
-            return redirect(url_for('import_excel'))
+            return f"Import Error: {str(e)}"
 
     return render_template('import.html')
+
+
+# =====================================
+# RUN
+# =====================================
+
+if __name__ == "__main__":
+    app.run(debug=True)
