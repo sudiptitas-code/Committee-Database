@@ -1,50 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
+<div class="mb-3">
+    <input type="text" id="searchBox" class="form-control" placeholder="Search by subject, reference, convener...">
+</div>
 
-<h2>Search Committees</h2>
+<div id="resultsContainer">
+    <!-- Live search results will appear here -->
+</div>
 
-<form method="GET">
-    <input class="form-control mb-3" name="q" placeholder="Search by subject or reference">
-</form>
-
-<table class="table table-bordered table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Subject</th>
-            <th>Reference</th>
-            <th>Date</th>
-            <th>Convener</th>
-            <th>Member 1</th>
-            <th>Member 2</th>
-            <th>Member 3</th>
-            <th>Secretary</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-
-    <tbody>
-    {% for row in rows %}
-        <tr>
-            <td>{{ row['id'] }}</td>
-            <td>{{ row['subject'] }}</td>
-            <td>{{ row['reference_no'] }}</td>
-            <td>{{ row['date'] }}</td>
-            <td>{{ row['convener'] }}</td>
-            <td>{{ row['member1'] }}</td>
-            <td>{{ row['member2'] }}</td>
-            <td>{{ row['member3'] }}</td>
-            <td>{{ row['secretary'] }}</td>
-            <td>
-                <a class="btn btn-warning btn-sm" href="/edit/{{ row['id'] }}">Edit</a>
-
-                <form action="/delete/{{ row['id'] }}" method="POST" style="display:inline;">
-                    <button class="btn btn-danger btn-sm">Delete</button>
-                </form>
-            </td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
-
+<script src="{{ url_for('static', filename='script.js') }}"></script>
 {% endblock %}

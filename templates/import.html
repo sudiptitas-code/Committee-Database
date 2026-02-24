@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4 shadow mx-auto" style="max-width:500px;">
+    <h3 class="text-center mb-3">Import Excel File</h3>
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <input type="file" name="file" class="form-control" accept=".xlsx" required>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Upload & Import</button>
+    </form>
+    <p class="mt-2 text-muted">Make sure Excel columns are: subject, reference_no, date, convener, member1, member2, member3, secretary</p>
+</div>
+{% endblock %}

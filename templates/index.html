@@ -1,19 +1,33 @@
 {% extends "base.html" %}
 {% block content %}
-
-<h2>Add Committee</h2>
-
-<form method="POST">
-    <input class="form-control mb-2" name="subject" placeholder="Subject" required>
-    <input class="form-control mb-2" name="reference_no" placeholder="Reference No" required>
-    <input class="form-control mb-2" type="date" name="date" required>
-    <input class="form-control mb-2" name="convener" placeholder="Convener">
-    <input class="form-control mb-2" name="member1" placeholder="Member 1">
-    <input class="form-control mb-2" name="member2" placeholder="Member 2">
-    <input class="form-control mb-2" name="member3" placeholder="Member 3">
-    <input class="form-control mb-2" name="secretary" placeholder="Secretary">
-
-    <button class="btn btn-primary">Save</button>
-</form>
-
+<div class="card p-4 shadow mx-auto" style="max-width:600px;">
+    <h3 class="text-center mb-3">Add Committee Record</h3>
+    <form method="POST" action="{{ url_for('add') }}">
+        <div class="mb-2">
+            <input type="text" name="subject" class="form-control" placeholder="Committee Subject" required>
+        </div>
+        <div class="mb-2">
+            <input type="text" name="reference_no" class="form-control" placeholder="Reference No" required>
+        </div>
+        <div class="mb-2">
+            <input type="date" name="date" class="form-control" required>
+        </div>
+        <div class="mb-2">
+            <input type="text" name="convener" class="form-control" placeholder="Convener" required>
+        </div>
+        <div class="mb-2">
+            <input type="text" name="member1" class="form-control" placeholder="Member 1">
+        </div>
+        <div class="mb-2">
+            <input type="text" name="member2" class="form-control" placeholder="Member 2">
+        </div>
+        <div class="mb-2">
+            <input type="text" name="member3" class="form-control" placeholder="Member 3">
+        </div>
+        <div class="mb-3">
+            <input type="text" name="secretary" class="form-control" placeholder="Member Secretary">
+        </div>
+        <button type="submit" class="btn btn-success w-100">Add Record</button>
+    </form>
+</div>
 {% endblock %}
