@@ -1,13 +1,25 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 import sqlite3
+from flask import Flask, render_template, request, redirect, url_for, flash
 from datetime import datetime
+import os
 
 app = Flask(__name__)
-app.secret_key = "secret123"
+app.secret_key = "supersecretkey"
+
+# ===============================
+# DATABASE CONFIGURATION
+# ===============================
+
+# For Render Persistent Disk use:
+# DATABASE = "/data/committee.db"
 
 DATABASE = "committee.db"
 
-# ---------- Database Setup ----------
+
+# ===============================
+# DATABASE INITIALIZATION
+# ===============================
+
 def init_db():
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
@@ -16,7 +28,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS committees (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             subject TEXT,
-            reference_no TEXT UNIQUE,
+            reference_no TEXT,
             date TEXT,
             convener TEXT,
             member1 TEXT,
@@ -29,64 +41,60 @@ def init_db():
     conn.commit()
     conn.close()
 
-def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
 
-# ---------- Dashboard ----------
+# ===============================
+# DASHBOARD
+# ===============================
+
 @app.route('/')
 def dashboard():
-    conn = get_db()
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Total committees
     cursor.execute("SELECT COUNT(*) FROM committees")
-    total_committees = cursor.fetchone()[0]
+    committee_count = cursor.fetchone()[0]
 
-    # Collect unique members
     cursor.execute("""
-        SELECT convener, member1, member2, member3, secretary FROM committees
+        SELECT member1, member2, member3, secretary FROM committees
     """)
     rows = cursor.fetchall()
 
-    members = set()
+    members = []
     for row in rows:
-        for member in row:
-            if member and member.strip() != "":
-                members.add(member.strip())
+        members.extend([row['member1'], row['member2'], row['member3'], row['secretary']])
 
-    total_members = len(members)
+    unique_members = len(set([m for m in members if m]))
+
+    current_time = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
 
     conn.close()
 
-    current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
     return render_template(
-        "dashboard.html",
-        total_committees=total_committees,
-        total_members=total_members,
-        current_datetime=current_datetime
+        'dashboard.html',
+        committee_count=committee_count,
+        member_count=unique_members,
+        current_time=current_time
     )
 
-# ---------- Add Record ----------
-@app.route('/add')
-def add_page():
-    return render_template("index.html")
 
-@app.route('/submit', methods=['POST'])
-def submit():
-    conn = get_db()
-    cursor = conn.cursor()
+# ===============================
+# ADD COMMITTEE
+# ===============================
 
-    try:
+@app.route('/add', methods=['GET', 'POST'])
+def add():
+    if request.method == 'POST':
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+
         cursor.execute("""
             INSERT INTO committees 
             (subject, reference_no, date, convener, member1, member2, member3, secretary)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             request.form['subject'],
-            request.form['reference'],
+            request.form['reference_no'],
             request.form['date'],
             request.form['convener'],
             request.form['member1'],
@@ -96,99 +104,131 @@ def submit():
         ))
 
         conn.commit()
-        flash("Record saved successfully!")
+        conn.close()
 
-    except sqlite3.IntegrityError:
-        flash("Reference number already exists!")
+        flash("Committee added successfully!")
+        return redirect(url_for('dashboard'))
 
-    conn.close()
-    return redirect(url_for('dashboard'))
+    return render_template('add.html')
 
-# ---------- Search ----------
+
+# ===============================
+# SEARCH
+# ===============================
+
 @app.route('/search')
-def search_page():
-    return render_template("search.html")
-
-@app.route('/api/search')
 def search():
-    query = request.args.get('q', '')
+    query = request.args.get('q', '').strip()
 
-    conn = get_db()
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT * FROM committees
-        WHERE subject LIKE ?
-        OR reference_no LIKE ?
-        OR convener LIKE ?
-        OR member1 LIKE ?
-        OR member2 LIKE ?
-        OR member3 LIKE ?
-        OR secretary LIKE ?
-    """, tuple([f"%{query}%"] * 7))
+    if query:
+        cursor.execute("""
+            SELECT * FROM committees
+            WHERE 
+                subject LIKE ?
+                OR reference_no LIKE ?
+                OR convener LIKE ?
+                OR member1 LIKE ?
+                OR member2 LIKE ?
+                OR member3 LIKE ?
+                OR secretary LIKE ?
+        """, tuple(['%' + query + '%'] * 7))
 
-    rows = cursor.fetchall()
+        rows = cursor.fetchall()
+        results = [dict(row) for row in rows]
+    else:
+        results = []
+
     conn.close()
 
-    results = [dict(row) for row in rows]
-    return jsonify(results)
+    return render_template('search.html', results=results)
 
-# ---------- Delete ----------
-@app.route('/delete/<ref_no>')
-def delete_record(ref_no):
-    conn = get_db()
+
+# ===============================
+# EDIT
+# ===============================
+
+@app.route('/edit/<int:id>')
+def edit(id):
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM committees WHERE reference_no = ?", (ref_no,))
-    conn.commit()
+    cursor.execute("SELECT * FROM committees WHERE id=?", (id,))
+    row = cursor.fetchone()
+
     conn.close()
 
-    flash("Record deleted successfully!")
-    return redirect(url_for('search_page'))
-
-# ---------- Edit ----------
-@app.route('/edit/<ref_no>')
-def edit_record(ref_no):
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM committees WHERE reference_no = ?", (ref_no,))
-    record = cursor.fetchone()
-    conn.close()
-
-    if not record:
+    if not row:
         flash("Record not found!")
-        return redirect(url_for('search_page'))
+        return redirect(url_for('search'))
 
-    return render_template("edit.html", data=dict(record))
+    return render_template('edit.html', data=dict(row))
 
-@app.route('/update/<ref_no>', methods=['POST'])
-def update_record(ref_no):
-    conn = get_db()
+
+# ===============================
+# UPDATE
+# ===============================
+
+@app.route('/update/<int:id>', methods=['POST'])
+def update(id):
+    conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
 
     cursor.execute("""
-        UPDATE committees
-        SET subject=?, date=?, convener=?, member1=?, member2=?, member3=?, secretary=?
-        WHERE reference_no=?
+        UPDATE committees SET
+            subject=?,
+            reference_no=?,
+            date=?,
+            convener=?,
+            member1=?,
+            member2=?,
+            member3=?,
+            secretary=?
+        WHERE id=?
     """, (
         request.form['subject'],
+        request.form['reference_no'],
         request.form['date'],
         request.form['convener'],
         request.form['member1'],
         request.form['member2'],
         request.form['member3'],
         request.form['secretary'],
-        ref_no
+        id
     ))
 
     conn.commit()
     conn.close()
 
     flash("Record updated successfully!")
-    return redirect(url_for('search_page'))
+    return redirect(url_for('search'))
 
-# ---------- Run ----------
-if __name__ == "__main__":
+
+# ===============================
+# DELETE (SAFE POST)
+# ===============================
+
+@app.route('/delete/<int:id>', methods=['POST'])
+def delete(id):
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM committees WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
+
+    flash("Record deleted successfully!")
+    return redirect(url_for('search'))
+
+
+# ===============================
+# MAIN
+# ===============================
+
+if __name__ == '__main__':
     init_db()
     app.run(debug=True)
