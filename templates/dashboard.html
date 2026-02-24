@@ -1,40 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div style="max-width:1000px; margin:30px auto; display:grid; grid-template-columns:repeat(auto-fit, minmax(250px,1fr)); gap:20px;">
-
-    <!-- Total Committees -->
-    <div style="background:#4CAF50; color:white; padding:30px; border-radius:10px; text-align:center;">
-        <h3>Total Committees</h3>
-        <p style="font-size:40px; font-weight:bold;">{{ total_committees }}</p>
-    </div>
-
-    <!-- Total Members -->
-    <div style="background:#2196F3; color:white; padding:30px; border-radius:10px; text-align:center;">
-        <h3>Total Unique Members</h3>
-        <p style="font-size:40px; font-weight:bold;">{{ total_members }}</p>
-    </div>
-
-    <!-- Current Date & Time -->
-    <div style="background:#FF9800; color:white; padding:30px; border-radius:10px; text-align:center;">
-        <h3>Current Date & Time</h3>
-        <p id="liveClock" style="font-size:22px;">{{ current_datetime }}</p>
-    </div>
-
-</div>
-
-<script>
-function updateClock() {
-    const now = new Date();
-    document.getElementById('liveClock').innerText =
-        now.getFullYear() + "-" +
-        String(now.getMonth()+1).padStart(2,'0') + "-" +
-        String(now.getDate()).padStart(2,'0') + " " +
-        String(now.getHours()).padStart(2,'0') + ":" +
-        String(now.getMinutes()).padStart(2,'0') + ":" +
-        String(now.getSeconds()).padStart(2,'0');
-}
-setInterval(updateClock, 1000);
-</script>
+<h2>Dashboard</h2>
+<p><strong>Total Committees:</strong> {{ total_committees }}</p>
+<p><strong>Total Unique Members:</strong> {{ total_members }}</p>
+<p><strong>Current Time:</strong> {{ current_datetime }}</p>
 
 {% endblock %}
