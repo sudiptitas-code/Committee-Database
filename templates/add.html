@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h2 class="mb-4">Add Committee</h2>
+
+<form method="POST">
+
+    <div class="mb-3">
+        <label>Subject</label>
+        <input type="text" name="subject" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label>Reference No</label>
+        <input type="text" name="reference_no" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label>Date</label>
+        <input type="date" name="date" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label>Convener</label>
+        <input type="text" name="convener" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label>Member 1</label>
+        <input type="text" name="member1" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label>Member 2</label>
+        <input type="text" name="member2" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label>Member 3</label>
+        <input type="text" name="member3" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label>Secretary</label>
+        <input type="text" name="secretary" class="form-control">
+    </div>
+
+    <button class="btn btn-primary">Add Committee</button>
+
+</form>
+
+{% endblock %}

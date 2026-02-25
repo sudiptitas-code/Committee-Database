@@ -9,10 +9,21 @@ from io import BytesIO
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
+# =====================================================
+# DATABASE CONFIGURATION (PostgreSQL for Render)
+# =====================================================
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise Exception("DATABASE_URL environment variable not set!")
 
 def get_connection():
     return psycopg2.connect(DATABASE_URL)
+
+# =====================================================
+# INITIALIZE DATABASE
+# =====================================================
 
 def init_db():
     conn = get_connection()
@@ -37,68 +48,96 @@ def init_db():
 with app.app_context():
     init_db()
 
-# ================= DASHBOARD =================
+# =====================================================
+# DASHBOARD
+# =====================================================
 
 @app.route('/')
 def dashboard():
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    cur.execute("SELECT COUNT(*) FROM committees")
-    total_committees = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM committees")
+        total_committees = cur.fetchone()[0]
 
-    cur.execute("SELECT member1, member2, member3, secretary FROM committees")
-    rows = cur.fetchall()
+        cur.execute("SELECT member1, member2, member3, secretary FROM committees")
+        rows = cur.fetchall()
 
-    members = []
-    for row in rows:
-        members.extend([row['member1'], row['member2'], row['member3'], row['secretary']])
+        members = []
+        for row in rows:
+            members.extend([
+                row['member1'],
+                row['member2'],
+                row['member3'],
+                row['secretary']
+            ])
 
-    total_members = len(set([m for m in members if m]))
+        total_members = len(set([m for m in members if m]))
 
-    cur.close()
-    conn.close()
+        cur.close()
+        conn.close()
 
-    return render_template(
-        "dashboard.html",
-        total_committees=total_committees,
-        total_members=total_members,
-        current_datetime=datetime.now().strftime("%d %B %Y, %I:%M %p")
-    )
+        return render_template(
+            "dashboard.html",
+            total_committees=total_committees,
+            total_members=total_members,
+            current_datetime=datetime.now().strftime("%d %B %Y, %I:%M %p")
+        )
 
-# ================= ADD =================
+    except Exception as e:
+        return f"DASHBOARD ERROR: {str(e)}"
+
+# =====================================================
+# ADD COMMITTEE (FIXED)
+# =====================================================
 
 @app.route('/add', methods=['GET', 'POST'])
 def add():
     if request.method == 'POST':
-        conn = get_connection()
-        cur = conn.cursor()
+        try:
+            subject = request.form.get('subject', '')
+            reference_no = request.form.get('reference_no', '')
+            date = request.form.get('date', '')
+            convener = request.form.get('convener', '')
+            member1 = request.form.get('member1', '')
+            member2 = request.form.get('member2', '')
+            member3 = request.form.get('member3', '')
+            secretary = request.form.get('secretary', '')
 
-        cur.execute("""
-            INSERT INTO committees
-            (subject, reference_no, date, convener, member1, member2, member3, secretary)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-        """, (
-            request.form['subject'],
-            request.form['reference_no'],
-            request.form['date'],
-            request.form['convener'],
-            request.form['member1'],
-            request.form['member2'],
-            request.form['member3'],
-            request.form['secretary']
-        ))
+            conn = get_connection()
+            cur = conn.cursor()
 
-        conn.commit()
-        cur.close()
-        conn.close()
+            cur.execute("""
+                INSERT INTO committees
+                (subject, reference_no, date, convener, member1, member2, member3, secretary)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (
+                subject,
+                reference_no,
+                date,
+                convener,
+                member1,
+                member2,
+                member3,
+                secretary
+            ))
 
-        flash("Committee added successfully!", "success")
-        return redirect(url_for('dashboard'))
+            conn.commit()
+            cur.close()
+            conn.close()
+
+            flash("Committee added successfully!", "success")
+            return redirect(url_for('dashboard'))
+
+        except Exception as e:
+            return f"ADD ERROR: {str(e)}"
 
     return render_template("add.html")
 
-# ================= SEARCH =================
+# =====================================================
+# SEARCH
+# =====================================================
 
 @app.route('/search')
 def search():
@@ -106,146 +145,196 @@ def search():
 
 @app.route('/api/search')
 def api_search():
-    query = request.args.get('q', '')
+    try:
+        query = request.args.get('q', '')
 
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    cur.execute("""
-        SELECT * FROM committees
-        WHERE subject ILIKE %s
-        OR reference_no ILIKE %s
-        OR convener ILIKE %s
-        OR member1 ILIKE %s
-        OR member2 ILIKE %s
-        OR member3 ILIKE %s
-        OR secretary ILIKE %s
-        ORDER BY id DESC
-    """, tuple(['%' + query + '%'] * 7))
+        cur.execute("""
+            SELECT * FROM committees
+            WHERE subject ILIKE %s
+            OR reference_no ILIKE %s
+            OR convener ILIKE %s
+            OR member1 ILIKE %s
+            OR member2 ILIKE %s
+            OR member3 ILIKE %s
+            OR secretary ILIKE %s
+            ORDER BY id DESC
+        """, tuple(['%' + query + '%'] * 7))
 
-    results = cur.fetchall()
+        results = cur.fetchall()
 
-    cur.close()
-    conn.close()
+        cur.close()
+        conn.close()
 
-    return jsonify(results)
+        return jsonify(results)
 
-# ================= EDIT =================
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+# =====================================================
+# EDIT
+# =====================================================
 
 @app.route('/edit/<int:id>')
 def edit(id):
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    cur.execute("SELECT * FROM committees WHERE id=%s", (id,))
-    row = cur.fetchone()
+        cur.execute("SELECT * FROM committees WHERE id=%s", (id,))
+        row = cur.fetchone()
 
-    cur.close()
-    conn.close()
+        cur.close()
+        conn.close()
 
-    if not row:
-        flash("Record not found!", "danger")
-        return redirect(url_for('search'))
+        if not row:
+            flash("Record not found!", "danger")
+            return redirect(url_for('search'))
 
-    return render_template("edit.html", data=row)
+        return render_template("edit.html", data=row)
+
+    except Exception as e:
+        return f"EDIT ERROR: {str(e)}"
+
+# =====================================================
+# UPDATE
+# =====================================================
 
 @app.route('/update/<int:id>', methods=['POST'])
 def update(id):
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        UPDATE committees SET
-            subject=%s,
-            reference_no=%s,
-            date=%s,
-            convener=%s,
-            member1=%s,
-            member2=%s,
-            member3=%s,
-            secretary=%s
-        WHERE id=%s
-    """, (
-        request.form['subject'],
-        request.form['reference_no'],
-        request.form['date'],
-        request.form['convener'],
-        request.form['member1'],
-        request.form['member2'],
-        request.form['member3'],
-        request.form['secretary'],
-        id
-    ))
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    flash("Updated successfully!", "success")
-    return redirect(url_for('search'))
-
-# ================= DELETE =================
-
-@app.route('/delete/<int:id>', methods=['POST'])
-def delete(id):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM committees WHERE id=%s", (id,))
-    conn.commit()
-    cur.close()
-    conn.close()
-    flash("Deleted successfully!", "warning")
-    return redirect(url_for('search'))
-
-# ================= EXPORT =================
-
-@app.route('/export')
-def export_excel():
-    conn = get_connection()
-    df = pd.read_sql("SELECT * FROM committees", conn)
-    conn.close()
-
-    output = BytesIO()
-    df.to_excel(output, index=False)
-    output.seek(0)
-
-    return send_file(output, download_name="committees.xlsx", as_attachment=True)
-
-# ================= IMPORT =================
-
-@app.route('/import', methods=['GET','POST'])
-def import_excel():
-    if request.method == 'POST':
-        file = request.files['file']
-        df = pd.read_excel(file)
-
+    try:
         conn = get_connection()
         cur = conn.cursor()
 
-        for _, row in df.iterrows():
-            cur.execute("""
-                INSERT INTO committees
-                (subject, reference_no, date, convener, member1, member2, member3, secretary)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (
-                row.get('subject'),
-                row.get('reference_no'),
-                row.get('date'),
-                row.get('convener'),
-                row.get('member1'),
-                row.get('member2'),
-                row.get('member3'),
-                row.get('secretary')
-            ))
+        cur.execute("""
+            UPDATE committees SET
+                subject=%s,
+                reference_no=%s,
+                date=%s,
+                convener=%s,
+                member1=%s,
+                member2=%s,
+                member3=%s,
+                secretary=%s
+            WHERE id=%s
+        """, (
+            request.form.get('subject', ''),
+            request.form.get('reference_no', ''),
+            request.form.get('date', ''),
+            request.form.get('convener', ''),
+            request.form.get('member1', ''),
+            request.form.get('member2', ''),
+            request.form.get('member3', ''),
+            request.form.get('secretary', ''),
+            id
+        ))
 
         conn.commit()
         cur.close()
         conn.close()
 
-        flash("Excel imported successfully!", "success")
-        return redirect(url_for('dashboard'))
+        flash("Updated successfully!", "success")
+        return redirect(url_for('search'))
+
+    except Exception as e:
+        return f"UPDATE ERROR: {str(e)}"
+
+# =====================================================
+# DELETE
+# =====================================================
+
+@app.route('/delete/<int:id>', methods=['POST'])
+def delete(id):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute("DELETE FROM committees WHERE id=%s", (id,))
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+        flash("Deleted successfully!", "warning")
+        return redirect(url_for('search'))
+
+    except Exception as e:
+        return f"DELETE ERROR: {str(e)}"
+
+# =====================================================
+# EXPORT EXCEL
+# =====================================================
+
+@app.route('/export')
+def export_excel():
+    try:
+        conn = get_connection()
+        df = pd.read_sql("SELECT * FROM committees", conn)
+        conn.close()
+
+        output = BytesIO()
+        df.to_excel(output, index=False)
+        output.seek(0)
+
+        return send_file(
+            output,
+            download_name="committees.xlsx",
+            as_attachment=True
+        )
+
+    except Exception as e:
+        return f"EXPORT ERROR: {str(e)}"
+
+# =====================================================
+# IMPORT EXCEL
+# =====================================================
+
+@app.route('/import', methods=['GET', 'POST'])
+def import_excel():
+    if request.method == 'POST':
+        try:
+            file = request.files.get('file')
+
+            if not file:
+                flash("No file selected!", "danger")
+                return redirect(url_for('import_excel'))
+
+            df = pd.read_excel(file)
+
+            conn = get_connection()
+            cur = conn.cursor()
+
+            for _, row in df.iterrows():
+                cur.execute("""
+                    INSERT INTO committees
+                    (subject, reference_no, date, convener, member1, member2, member3, secretary)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (
+                    row.get('subject', ''),
+                    row.get('reference_no', ''),
+                    row.get('date', ''),
+                    row.get('convener', ''),
+                    row.get('member1', ''),
+                    row.get('member2', ''),
+                    row.get('member3', ''),
+                    row.get('secretary', '')
+                ))
+
+            conn.commit()
+            cur.close()
+            conn.close()
+
+            flash("Excel imported successfully!", "success")
+            return redirect(url_for('dashboard'))
+
+        except Exception as e:
+            return f"IMPORT ERROR: {str(e)}"
 
     return render_template("import.html")
+
+# =====================================================
 
 if __name__ == "__main__":
     app.run(debug=True)
