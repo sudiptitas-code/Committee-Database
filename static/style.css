@@ -30,3 +30,9 @@ body {
 .navbar {
     border-bottom: 4px solid #0d6efd;
 }
+
+.clickable-card:hover {
+    transform: scale(1.05);
+    transition: 0.3s;
+    cursor: pointer;
+}

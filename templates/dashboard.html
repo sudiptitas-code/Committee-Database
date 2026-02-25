@@ -1,12 +1,13 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<h2 class="mb-4">Dashboard</h2>
+<h2 class="fw-bold mb-4 gradient-text">Dashboard Overview</h2>
 
-<div class="row">
+<div class="row mb-4">
+
     <div class="col-md-6">
-        <div class="card text-white bg-primary mb-3">
-            <div class="card-body">
+        <div class="card text-white bg-primary shadow-lg">
+            <div class="card-body text-center">
                 <h5>Total Committees</h5>
                 <h2>{{ total_committees }}</h2>
             </div>
@@ -14,17 +15,41 @@
     </div>
 
     <div class="col-md-6">
-        <div class="card text-white bg-success mb-3">
-            <div class="card-body">
-                <h5>Total Members</h5>
-                <h2>{{ total_members }}</h2>
+        <a href="/members" style="text-decoration:none;">
+            <div class="card text-white bg-success shadow-lg clickable-card">
+                <div class="card-body text-center">
+                    <h5>Total Active Members</h5>
+                    <h2>{{ total_members }}</h2>
+                    <small>(Click to view details)</small>
+                </div>
             </div>
-        </div>
+        </a>
     </div>
+
 </div>
 
-<div class="alert alert-info text-center">
-    {{ current_datetime }}
+<div class="card shadow-lg p-4">
+    <h5 class="mb-3">📈 Committee Growth (Monthly)</h5>
+    <canvas id="growthChart"></canvas>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('growthChart');
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ growth_labels|tojson }},
+            datasets: [{
+                label: 'Committees Created',
+                data: {{ growth_values|tojson }},
+                borderWidth: 3,
+                fill: true,
+                tension: 0.3
+            }]
+        }
+    });
+</script>
 
 {% endblock %}
