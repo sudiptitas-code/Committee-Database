@@ -1,8 +1,32 @@
-body { font-family: Arial; background:#f4f4f4; }
-.container { background:white; padding:20px; margin:20px auto; width:800px; }
-nav a { margin:10px; }
-input { display:block; margin:8px 0; padding:8px; width:100%; }
-button { padding:10px; background:#007bff; color:white; border:none; }
-table { width:100%; border-collapse:collapse; margin-top:20px; }
-th, td { border:1px solid #ddd; padding:8px; }
-.msg { background:#d4edda; padding:10px; margin-bottom:10px; }
+body {
+    background: linear-gradient(135deg, #f8f9fa, #e9f0ff);
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.gradient-text {
+    background: linear-gradient(90deg, #007bff, #6610f2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.search-card {
+    border-radius: 15px;
+}
+
+.committee-card {
+    border-radius: 15px;
+    transition: all 0.3s ease;
+}
+
+.committee-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+}
+
+.card {
+    border-radius: 15px;
+}
+
+.navbar {
+    border-bottom: 4px solid #0d6efd;
+}
