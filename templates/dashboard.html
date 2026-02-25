@@ -1,37 +1,30 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 {% block content %}
-<div class="row text-center g-4">
-    <div class="col-md-4">
-        <div class="card bg-success text-white p-4">
-            <h4>Total Committees</h4>
-            <p class="display-6">{{ total_committees }}</p>
+
+<h2 class="mb-4">Dashboard</h2>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <h5>Total Committees</h5>
+                <h2>{{ total_committees }}</h2>
+            </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card bg-info text-white p-4">
-            <h4>Total Unique Members</h4>
-            <p class="display-6">{{ total_members }}</p>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card bg-warning text-white p-4">
-            <h4>Current Date & Time</h4>
-            <p class="display-6" id="liveClock">{{ current_datetime }}</p>
+
+    <div class="col-md-6">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h5>Total Members</h5>
+                <h2>{{ total_members }}</h2>
+            </div>
         </div>
     </div>
 </div>
 
-<script>
-function updateClock() {
-    const now = new Date();
-    document.getElementById('liveClock').innerText =
-        now.getFullYear() + "-" +
-        String(now.getMonth()+1).padStart(2,'0') + "-" +
-        String(now.getDate()).padStart(2,'0') + " " +
-        String(now.getHours()).padStart(2,'0') + ":" +
-        String(now.getMinutes()).padStart(2,'0') + ":" +
-        String(now.getSeconds()).padStart(2,'0');
-}
-setInterval(updateClock, 1000);
-</script>
+<div class="alert alert-info text-center">
+    {{ current_datetime }}
+</div>
+
 {% endblock %}
